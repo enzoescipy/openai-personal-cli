@@ -1,7 +1,7 @@
 {
     "chat_settings": {
         // "model": "gpt-4",
-        "model": "gpt-3.5-turbo",
+        "model": "gpt-4",
         "available_models": [
             "gpt-3.5-turbo",
             "gpt-4",
@@ -11,10 +11,10 @@
         "max_conversation_history": 5
     },
     "image_settings": {
-        // "model": "dall-e-3",
-        "model": "dall-e-2",
-        // "size": "1792x1024",
-        "size": "1024x1024",
+        "model": "dall-e-3",
+        // "model": "dall-e-2",
+        "size": "1792x1024",
+        // "size": "1024x1024",
         "available_sizes": [
             "1024x1024",
             "1792x1024",
@@ -25,8 +25,8 @@
             "standard",
             "hd"
         ],
-        "max_context_history": 20,
-        "use_raw_prompt": true
+        "max_context_history": 20
+        // "use_raw_prompt": true
     },
     "cli_settings": {
         "show_enhanced_prompt": true,

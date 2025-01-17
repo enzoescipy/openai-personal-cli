@@ -104,7 +104,7 @@ def generate_image_with_context(client, prompt, conversation, settings):
             return f"Error generating enhanced prompt: {str(e)}"
     
     try:
-        print(final_prompt)
+        # print(final_prompt)
         # Generate image with final prompt (either raw or enhanced)
         response = client.images.generate(
             model=settings["image_settings"]["model"],
