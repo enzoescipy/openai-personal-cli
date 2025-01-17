@@ -1,0 +1,18 @@
+# Python virtual environment
+pyvenv/
+venv/
+env/
+
+# Environment files
+*.env
+.env
+!openai-key-example.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE settings
+.vscode/
+.idea/
