@@ -1,2 +1,5 @@
-openai
-python-dotenv 
+openai>=1.0.0
+python-dotenv>=0.19.0
+sounddevice>=0.4.6
+numpy>=1.21.0
+keyboard>=0.13.5 

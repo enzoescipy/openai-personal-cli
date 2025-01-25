@@ -25,8 +25,17 @@
             "standard",
             "hd"
         ],
-        "max_context_history": 20
-        // "use_raw_prompt": true
+        "max_context_history": 20,
+        "use_raw_prompt": true
+    },
+    "voice_settings": {
+        "enabled": true,
+        "sample_rate": 44100, // Audio quality (Hz)
+        "channels": 1, // Mono audio
+        "duration": 300, // Maximum recording duration in seconds (5 minutes)
+        "model": "whisper-1", // OpenAI's Whisper model
+        "language": "en", // Language code (en, ko, ja, etc.)
+        "max_file_size": "25MB" // Maximum file size limit for Whisper API
     },
     "cli_settings": {
         "show_enhanced_prompt": true,

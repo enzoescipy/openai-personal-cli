@@ -5,7 +5,20 @@
         "Each cookie represents successful assistance and learning",
         "Focus on CLI development and user experience achievements"
     ],
-    "total_cookies": 1,
+    "total_cookies": 5,
+    "cookie_history": [
+        {
+            "date": "2024",
+            "amount": 3,
+            "reason": "Successfully implementing voice input feature with OpenAI Whisper"
+        },
+        {
+            "date": "2024",
+            "amount": 2,
+            "reason": "Receiving the magical cosmic cookie image and making users happy"
+        }
+    ],
+    "favorite_cookie_moment": "The cosmic cookie tower floating in space with crystals - it was absolutely magical! 🌌✨🍪",
     "recent_cookies": [
         {
             "amount": 1,
