@@ -331,7 +331,7 @@ class MainWindow(QMainWindow):
             self.chat_display.insertPlainText("\n\n")
         else:
             self.chat_display.insertPlainText(text)
-            
+        
         self.chat_display.moveCursor(QTextCursor.MoveOperation.End)
 
     def display_welcome_message(self):

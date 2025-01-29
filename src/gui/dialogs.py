@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QProgressBar, QApplication
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QProgressBar, QApplication, QProgressDialog
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont
 
@@ -59,30 +59,13 @@ class RecordingDialog(QDialog):
         if event.key() != Qt.Key.Key_Escape:
             super().keyPressEvent(event)
 
-class ProcessingDialog(QDialog):
+class ProcessingDialog(QProgressDialog):
     """Modal dialog for processing status."""
     def __init__(self, message: str, parent=None):
-        super().__init__(parent)
+        super().__init__(message, "Cancel", 0, 0, parent)
         self.setWindowTitle("Processing")
-        self.setModal(True)
-        self.setFixedSize(300, 150)
-        self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowCloseButtonHint)  # Disable close button
-        
-        layout = QVBoxLayout()
-        
-        # Status message
-        status = QLabel(message)
-        status.setFont(QFont('Segoe UI', 11))
-        status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(status)
-        
-        # Progress bar
-        self.progress = QProgressBar()
-        self.progress.setMinimum(0)
-        self.progress.setMaximum(0)  # Indeterminate progress
-        layout.addWidget(self.progress)
-        
-        self.setLayout(layout)
+        self.setWindowModality(Qt.WindowModality.WindowModal)
+        self.setMinimumDuration(500)
         
     def keyPressEvent(self, event):
         """Handle key press events."""
