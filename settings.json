@@ -11,8 +11,8 @@
         "max_conversation_history": 5
     },
     "image_settings": {
-        "model": "dall-e-3",
-        // "model": "dall-e-2",
+        // "model": "dall-e-3",
+        "model": "dall-e-2",
         // "size": "1792x1024",
         "size": "1024x1024",
         "available_sizes": [

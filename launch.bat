@@ -1,3 +1,2 @@
-pyvenv\Scripts\python.exe chat_cli.py
-
+pyvenv\Scripts\python.exe main.py
 pause
