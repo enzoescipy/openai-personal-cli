@@ -8,9 +8,12 @@ from PyQt6.QtGui import (
     QFont, QTextCursor, QKeySequence, 
     QShortcut, QDesktopServices, QTextCharFormat
 )
+from PyQt6.QtWebEngineWidgets import QWebEngineView
+from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
 from ..features.controllers import MainController
 from .workers import APIWorker, ImageGenerationWorker
 from .dialogs import RecordingDialog, ProcessingDialog
+from ..utils.text_formatter import TextFormatter
 from PyQt6.QtWidgets import QApplication
 
 class MainWindow(QMainWindow):
@@ -24,6 +27,7 @@ class MainWindow(QMainWindow):
         self.is_continuous_voice_mode = False
         self.active_workers = []
         self.current_progress_dialog = None
+        self.chat_content = ""  # Store chat content
         
         self.init_ui()
         self.setup_shortcuts()
@@ -38,11 +42,22 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
 
-        # Create chat display
-        self.chat_display = QTextBrowser()
-        self.chat_display.setOpenExternalLinks(True)
-        self.chat_display.setFont(QFont('Consolas', 10))
+        # Create chat display with rich text and JavaScript support
+        self.chat_display = QWebEngineView()
+        self.chat_display.setMinimumSize(200, 200)
+        self.chat_display.page().setBackgroundColor(Qt.GlobalColor.white)
+        
+        # Enable JavaScript and local content
+        settings = self.chat_display.page().settings()
+        settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.AllowRunningInsecureContent, True)
+        
         layout.addWidget(self.chat_display)
+        
+        # Initialize with empty content
+        self.update_chat_display()
 
         # Create command input
         self.command_input = QLineEdit()
@@ -133,7 +148,7 @@ class MainWindow(QMainWindow):
     def _handle_chat_message(self, message: str):
         """Handle regular chat message."""
         self._disable_input()
-        self.append_to_chat("\n💭 Assistant is thinking...")
+        self.append_to_chat("\n💭 Assistant is thinking...", format_markdown=False)
         
         # Show thinking dialog
         dialog = ProcessingDialog("Assistant is thinking...", self)
@@ -145,11 +160,11 @@ class MainWindow(QMainWindow):
             response = self.controller.handle_chat_message(message)
             
             if response:
-                self.append_to_chat("\n\n" + "─" * 50)
-                self.append_to_chat("\n🤖 Assistant's Response:")
-                self.append_to_chat("\n" + "─" * 50)
-                self.append_to_chat(f"\n{response}")
-                self.append_to_chat("\n" + "─" * 50 + "\n")
+                self.append_to_chat("\n\n" + "─" * 50 + "\n", format_markdown=False)
+                self.append_to_chat("🤖 Assistant's Response:\n", format_markdown=False)
+                self.append_to_chat("─" * 50 + "\n", format_markdown=False)
+                self.append_to_chat(response)  # Format with Markdown and LaTeX
+                self.append_to_chat("\n" + "─" * 50 + "\n", format_markdown=False)
         finally:
             dialog.close()
             QApplication.processEvents()
@@ -307,32 +322,95 @@ class MainWindow(QMainWindow):
         else:
             self.command_input.setPlaceholderText("Type a command or message...")
 
-    def append_to_chat(self, text: str, is_url: bool = False):
-        """Append text to chat display."""
-        self.chat_display.moveCursor(QTextCursor.MoveOperation.End)
-        
+    def append_to_chat(self, text: str, is_url: bool = False, format_markdown: bool = True):
+        """Append text to chat display with optional Markdown and LaTeX formatting."""
         if is_url:
-            # Save current format
-            old_format = self.chat_display.currentCharFormat()
-            
-            # Create URL format
-            url_format = self.chat_display.currentCharFormat()
-            url_format.setAnchor(True)
-            url_format.setAnchorHref(text)
-            url_format.setForeground(Qt.GlobalColor.blue)
-            url_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.SingleUnderline)
-            
-            # Insert URL with format
-            self.chat_display.setCurrentCharFormat(url_format)
-            self.chat_display.insertPlainText(text)
-            
-            # Restore old format
-            self.chat_display.setCurrentCharFormat(old_format)
-            self.chat_display.insertPlainText("\n\n")
+            # Format URL
+            formatted_text = f'<a href="{text}" style="color: blue; text-decoration: underline;">{text}</a><br><br>'
         else:
-            self.chat_display.insertPlainText(text)
+            if format_markdown and not text.startswith("\n💭") and not text.startswith("You:"):
+                # Format text with Markdown and LaTeX support
+                formatted_text = TextFormatter.format_text(text)
+            else:
+                formatted_text = f"<div>{text}</div>"
         
-        self.chat_display.moveCursor(QTextCursor.MoveOperation.End)
+        # Append to stored content
+        if "Welcome to the OpenAI Chat CLI" in self.chat_content:
+            # First message after welcome
+            self.chat_content = formatted_text
+        else:
+            if not self.chat_content:
+                self.chat_content = formatted_text
+            else:
+                self.chat_content = self.chat_content.replace('</body></html>', '') + formatted_text + '</body></html>'
+        
+        # Update display
+        self.update_chat_display()
+
+    def update_chat_display(self):
+        """Update the chat display with current content."""
+        # Add a wrapper div for better scroll control
+        wrapped_content = f'''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <!-- MathJax Configuration -->
+            <script type="text/javascript" async
+                src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
+            </script>
+            <script type="text/x-mathjax-config">
+                MathJax.Hub.Config({{
+                    tex2jax: {{
+                        inlineMath: [['$','$']],
+                        displayMath: [['$$','$$']],
+                        processEscapes: true,
+                        processEnvironments: true
+                    }},
+                    "HTML-CSS": {{
+                        linebreaks: {{ automatic: true }},
+                        styles: {{'.MathJax_Display': {{"margin": "0.8em 0"}}}}
+                    }}
+                }});
+                MathJax.Hub.Queue(function() {{
+                    // Scroll after MathJax is done rendering
+                    window.scrollTo(0, document.body.scrollHeight);
+                }});
+            </script>
+        </head>
+        <body>
+            <div id="chat-content">
+                {self.chat_content}
+            </div>
+            <script>
+                // Scroll immediately
+                window.scrollTo(0, document.body.scrollHeight);
+                
+                // Scroll again after a delay to catch any dynamic content
+                setTimeout(function() {{ 
+                    window.scrollTo(0, document.body.scrollHeight);
+                }}, 100);
+                
+                // Scroll after all images are loaded
+                window.addEventListener('load', function() {{
+                    window.scrollTo(0, document.body.scrollHeight);
+                }});
+                
+                // Create MutationObserver to watch for content changes
+                const observer = new MutationObserver(function(mutations) {{
+                    window.scrollTo(0, document.body.scrollHeight);
+                }});
+                
+                // Start observing content changes
+                observer.observe(document.getElementById('chat-content'), {{
+                    childList: true,
+                    subtree: true
+                }});
+            </script>
+        </body>
+        </html>
+        '''
+        
+        self.chat_display.setHtml(wrapped_content)
 
     def display_welcome_message(self):
         """Display welcome message."""
@@ -346,7 +424,8 @@ class MainWindow(QMainWindow):
             "- /cpyvoice : Enter the rapid voice copying mode\n"
             "-"  # DO NOT edit this line
         )
-        self.chat_display.setText(welcome_text)
+        self.chat_content = f"<pre>{welcome_text}</pre>"
+        self.update_chat_display()
 
     def closeEvent(self, event):
         """Handle application shutdown."""
