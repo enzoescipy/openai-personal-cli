@@ -1,11 +1,11 @@
 {
     "chat_settings": {
         // "model": "gpt-4",
-        "model": "gpt-4",
+        "model": "gpt-4o",
         "available_models": [
             "gpt-3.5-turbo",
-            "gpt-4",
-            "gpt-4-turbo-preview"
+            "gpt-4o",
+            "gpt-4o-mini"
         ],
         "temperature": 0.7,
         "max_conversation_history": 5
@@ -13,8 +13,8 @@
     "image_settings": {
         "model": "dall-e-3",
         // "model": "dall-e-2",
-        "size": "1792x1024",
-        // "size": "1024x1024",
+        // "size": "1792x1024",
+        "size": "1024x1024",
         "available_sizes": [
             "1024x1024",
             "1792x1024",

@@ -9,6 +9,7 @@ import tempfile
 import keyboard
 import threading
 import time
+import pyperclip  # Add pyperclip import
 
 def load_settings():
     default_settings = {
@@ -157,10 +158,9 @@ def format_conversation(messages):
             formatted.append(f"{role}: {content}")
     return "\n".join(formatted)
 
-def record_audio(settings):
+def record_audio(settings, stop_processing=None):
     """Record audio using the microphone with spacebar to stop."""
     max_file_size = 25 * 1024 * 1024  # 25MB in bytes
-    print("\nRecording... Press SPACEBAR to stop recording (max 25MB or duration limit)")
     
     # Flag to control recording
     stop_recording = threading.Event()
@@ -188,7 +188,7 @@ def record_audio(settings):
         current_size = 0
         
         with stream:
-            while not stop_recording.is_set():
+            while not stop_recording.is_set() and (stop_processing is None or not stop_processing.is_set()):
                 data, _ = stream.read(1024)
                 current_size += len(data.tobytes())
                 
@@ -252,11 +252,183 @@ def transcribe_audio(client, audio_file_path, settings):
         except:
             pass
 
+def enter_voice_copy_mode():
+    """Enter the rapid voice copying mode."""
+    print("\n🎤 Welcome to OpenAI Whisper-model based voice copying mode!")
+    print("This mode will allow you to rapidly record and transcribe voice samples.")
+    print("Your voice will be automatically converted to text and copied to clipboard.")
+    print("\nInstructions:")
+    print("- Press ENTER to start recording")
+    print("- Press SPACEBAR to stop recording")
+    print("- Press ESC to force-stop (cancels current recording)")
+    print("- Type 'exit' to quit this mode")
+    
+    # Load settings and initialize client
+    settings = load_settings()
+    client = openai.Client(api_key=load_api_key())
+    
+    # Flag to control processing
+    stop_processing = threading.Event()
+    
+    def on_escape():
+        stop_processing.set()
+        print("\n❌ Force stopped!")
+    
+    while True:
+        try:
+            stop_processing.clear()  # Reset the stop flag
+            command = input("\n⏳ Ready - Press ENTER to start recording (or type 'exit' to quit): ").strip().lower()
+            
+            if command == 'exit':
+                print("\nExiting voice copy mode...")
+                break
+            
+            if command == '':  # User pressed Enter
+                # Setup escape key handler
+                keyboard.on_press_key('esc', lambda _: on_escape())
+                
+                print("\n🔴 Recording... (Press SPACEBAR to stop, ESC to cancel)")
+                recording = record_audio(settings, stop_processing)
+                
+                if stop_processing.is_set():
+                    keyboard.unhook_all()
+                    continue
+                
+                if recording is not None:
+                    print("\n⚙️ Processing audio...")
+                    audio_file = save_audio_to_file(recording, settings)
+                    
+                    if stop_processing.is_set():
+                        keyboard.unhook_all()
+                        if audio_file:
+                            try:
+                                os.remove(audio_file)
+                            except:
+                                pass
+                        continue
+                    
+                    if audio_file:
+                        transcription = transcribe_audio(client, audio_file, settings)
+                        if transcription:
+                            print(f"\n📝 Transcribed text: {transcription}")
+                            pyperclip.copy(transcription)
+                            print("✨ Text copied to clipboard!")
+                        else:
+                            print("\n❌ Failed to transcribe audio")
+                    else:
+                        print("\n❌ Failed to save audio")
+                else:
+                    print("\n❌ No audio recorded")
+                
+                # Clean up keyboard hooks
+                keyboard.unhook_all()
+                    
+        except Exception as e:
+            print(f"\n❌ Error: {str(e)}")
+            keyboard.unhook_all()  # Ensure keyboard hooks are cleaned up
+            continue
+
+def enter_voice_chat_mode(client, settings, conversation):
+    """Enter the continuous voice chat mode."""
+    print("\n🎤 Welcome to continuous voice chat mode!")
+    print("Have a continuous conversation with the AI using your voice.")
+    print("\nInstructions:")
+    print("- Press ENTER to start recording your message")
+    print("- Press SPACEBAR to stop recording")
+    print("- Press ESC to force-stop current recording")
+    print("- Type 'exit' to quit this mode")
+    
+    # Flag to control processing
+    stop_processing = threading.Event()
+    
+    def on_escape():
+        stop_processing.set()
+        print("\n❌ Force stopped!")
+    
+    while True:
+        try:
+            stop_processing.clear()  # Reset the stop flag
+            command = input("\n⏳ Ready - Press ENTER to speak (or type 'exit' to quit): ").strip().lower()
+            
+            if command == 'exit':
+                print("\nExiting voice chat mode...")
+                break
+            
+            if command == '':  # User pressed Enter
+                # Setup escape key handler
+                keyboard.on_press_key('esc', lambda _: on_escape())
+                
+                print("\n🔴 Recording... (Press SPACEBAR to stop, ESC to cancel)")
+                recording = record_audio(settings, stop_processing)
+                
+                if stop_processing.is_set():
+                    keyboard.unhook_all()
+                    continue
+                
+                if recording is not None:
+                    print("\n⚙️ Processing audio...")
+                    audio_file = save_audio_to_file(recording, settings)
+                    
+                    if stop_processing.is_set():
+                        keyboard.unhook_all()
+                        if audio_file:
+                            try:
+                                os.remove(audio_file)
+                            except:
+                                pass
+                        continue
+                    
+                    if audio_file:
+                        transcription = transcribe_audio(client, audio_file, settings)
+                        if transcription:
+                            print(f"\n📝 You said: {transcription}")
+                            
+                            # Add user message to conversation
+                            conversation.append({"role": "user", "content": transcription})
+                            
+                            # Get response from OpenAI
+                            try:
+                                print("\n💭 Assistant is thinking...")
+                                response = client.chat.completions.create(
+                                    model=settings["chat_settings"]["model"],
+                                    messages=conversation,
+                                    temperature=settings["chat_settings"]["temperature"],
+                                )
+                                
+                                # Extract and print the assistant's response with clear formatting
+                                assistant_response = response.choices[0].message.content
+                                print("\n" + "─" * 50)  # Top border
+                                print("🤖 Assistant's Response:")
+                                print("─" * 50)  # Separator
+                                print(assistant_response)
+                                print("─" * 50)  # Bottom border
+                                
+                                # Add assistant's response to conversation history
+                                conversation.append({"role": "assistant", "content": assistant_response})
+                            except Exception as e:
+                                print(f"\n❌ Error getting response: {str(e)}")
+                        else:
+                            print("\n❌ Failed to transcribe audio")
+                    else:
+                        print("\n❌ Failed to save audio")
+                else:
+                    print("\n❌ No audio recorded")
+                
+                # Clean up keyboard hooks
+                keyboard.unhook_all()
+                    
+        except Exception as e:
+            print(f"\n❌ Error: {str(e)}")
+            keyboard.unhook_all()  # Ensure keyboard hooks are cleaned up
+            continue
+
 def chat_with_gpt():
     # Load settings and initialize client
     settings = load_settings()
-    client = openai.OpenAI(api_key=load_api_key())
-    
+    openai.api_key = load_api_key()
+    client = openai.Client()
+    conversation = []
+
     # Store conversation history
     conversation = [
         {"role": "system", "content": "You are a helpful assistant. You can also generate images using DALL-E 3 when users type '/image' followed by their image description."}
@@ -269,63 +441,33 @@ def chat_with_gpt():
     print("- /image [description] : Generate an image using DALL-E 3 (uses conversation context)")
     print("- /image --with_voice (-v) : Generate an image using voice input")
     print("- /voice : Record and transcribe voice input")
+    print("- /voice --continuous (-c) : Enter continuous voice chat mode")
+    print("- /cpyvoice : Enter the rapid voice copying mode")
     print("-" * 50)
     
     while True:
-        # Get user input
-        user_input = input("\nYou: ").strip()
-        
-        # Check for quit command
-        if user_input.lower() in ['quit', 'exit']:
-            print("\nGoodbye!")
-            break
-        
-        # Handle voice input
-        if user_input == '/voice':
-            recording = record_audio(settings)
-            if recording is not None:
-                audio_file = save_audio_to_file(recording, settings)
-                if audio_file:
-                    transcription = transcribe_audio(client, audio_file, settings)
-                    if transcription:
-                        print(f"\nTranscribed: {transcription}")
-                        user_input = transcription
-                    else:
-                        continue
-                else:
-                    continue
-            else:
+        try:
+            user_input = input("\nYou: ").strip()
+            
+            if user_input.lower() == '/quit':
+                break
+            elif user_input.lower() == '/cpyvoice':
+                enter_voice_copy_mode()
                 continue
-        
-        # Check if this is an image generation request
-        if user_input.startswith('/image'):
-            # Parse voice input flags and additional text
-            has_voice = False
-            additional_text = ""
+            elif user_input.lower() in ['/voice --continuous', '/voice -c']:
+                enter_voice_chat_mode(client, settings, conversation)
+                continue
             
-            parts = user_input[6:].strip().split()  # Split into words after '/image'
-            if parts:
-                if parts[0] in ['--with_voice', '-v']:
-                    has_voice = True
-                    additional_text = ' '.join(parts[1:])  # Get any text after the flag
-                else:
-                    image_prompt = user_input[6:].strip()
-            
-            # Handle voice input if flag is present
-            if has_voice:
-                print("\nPlease speak your image description...")
+            # Handle voice input
+            if user_input == '/voice':
                 recording = record_audio(settings)
                 if recording is not None:
                     audio_file = save_audio_to_file(recording, settings)
                     if audio_file:
                         transcription = transcribe_audio(client, audio_file, settings)
                         if transcription:
-                            print(f"\nTranscribed image description: {transcription}")
-                            # Combine voice and text inputs if both present
-                            image_prompt = f"{transcription}"
-                            if additional_text:
-                                print(f"Additional text input: {additional_text}")
-                                image_prompt += f" {additional_text}"
+                            print(f"\nTranscribed: {transcription}")
+                            user_input = transcription
                         else:
                             continue
                     else:
@@ -333,34 +475,73 @@ def chat_with_gpt():
                 else:
                     continue
             
-            if image_prompt:
-                print("\nGenerating image (considering conversation context)...")
-                image_url = generate_image_with_context(client, image_prompt, conversation, settings)
-                print(f"\nImage URL: {image_url}")
+            # Check if this is an image generation request
+            if user_input.startswith('/image'):
+                # Parse voice input flags and additional text
+                has_voice = False
+                additional_text = ""
                 
-                # Add to conversation history
-                conversation.append({"role": "user", "content": f"Please generate an image: {image_prompt}"})
-                conversation.append({"role": "assistant", "content": f"I've generated an image based on your request and our conversation context. You can view it here: {image_url}"})
-            else:
-                print("\nPlease provide an image description after /image or use voice input")
+                parts = user_input[6:].strip().split()  # Split into words after '/image'
+                if parts:
+                    if parts[0] in ['--with_voice', '-v']:
+                        has_voice = True
+                        additional_text = ' '.join(parts[1:])  # Get any text after the flag
+                    else:
+                        image_prompt = user_input[6:].strip()
+                
+                # Handle voice input if flag is present
+                if has_voice:
+                    print("\nPlease speak your image description...")
+                    recording = record_audio(settings)
+                    if recording is not None:
+                        audio_file = save_audio_to_file(recording, settings)
+                        if audio_file:
+                            transcription = transcribe_audio(client, audio_file, settings)
+                            if transcription:
+                                print(f"\nTranscribed image description: {transcription}")
+                                # Combine voice and text inputs if both present
+                                image_prompt = f"{transcription}"
+                                if additional_text:
+                                    print(f"Additional text input: {additional_text}")
+                                    image_prompt += f" {additional_text}"
+                            else:
+                                continue
+                        else:
+                            continue
+                    else:
+                        continue
+                
+                if image_prompt:
+                    print("\nGenerating image (considering conversation context)...")
+                    image_url = generate_image_with_context(client, image_prompt, conversation, settings)
+                    print(f"\nImage URL: {image_url}")
+                    
+                    # Add to conversation history
+                    conversation.append({"role": "user", "content": f"Please generate an image: {image_prompt}"})
+                    conversation.append({"role": "assistant", "content": f"I've generated an image based on your request and our conversation context. You can view it here: {image_url}"})
+                else:
+                    print("\nPlease provide an image description after /image or use voice input")
+                continue
+            
+            # Add user message to conversation
+            conversation.append({"role": "user", "content": user_input})
+            
+            # Get response from OpenAI
+            response = client.chat.completions.create(
+                model=settings["chat_settings"]["model"],
+                messages=conversation,
+                temperature=settings["chat_settings"]["temperature"],
+            )
+            
+            # Extract and print the assistant's response
+            assistant_response = response.choices[0].message.content
+            print("\nAssistant:", assistant_response)
+            
+            # Add assistant's response to conversation history
+            conversation.append({"role": "assistant", "content": assistant_response})
+        except Exception as e:
+            print(f"\nError in chat loop: {str(e)}")
             continue
-        
-        # Add user message to conversation
-        conversation.append({"role": "user", "content": user_input})
-        
-        # Get response from OpenAI
-        response = client.chat.completions.create(
-            model=settings["chat_settings"]["model"],
-            messages=conversation,
-            temperature=settings["chat_settings"]["temperature"],
-        )
-        
-        # Extract and print the assistant's response
-        assistant_response = response.choices[0].message.content
-        print("\nAssistant:", assistant_response)
-        
-        # Add assistant's response to conversation history
-        conversation.append({"role": "assistant", "content": assistant_response})
 
 if __name__ == "__main__":
     chat_with_gpt()
