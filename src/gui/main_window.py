@@ -354,6 +354,16 @@ class MainWindow(QMainWindow):
         <!DOCTYPE html>
         <html>
         <head>
+            <style>
+                body {{
+                    color: black;
+                    visibility: visible !important;
+                }}
+                #chat-content {{
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                }}
+            </style>
             <!-- MathJax Configuration -->
             <script type="text/javascript" async
                 src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
@@ -364,17 +374,40 @@ class MainWindow(QMainWindow):
                         inlineMath: [['$','$']],
                         displayMath: [['$$','$$']],
                         processEscapes: true,
-                        processEnvironments: true
+                        processEnvironments: true,
+                        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'a']
                     }},
                     "HTML-CSS": {{
                         linebreaks: {{ automatic: true }},
                         styles: {{'.MathJax_Display': {{"margin": "0.8em 0"}}}}
                     }}
                 }});
-                MathJax.Hub.Queue(function() {{
-                    // Scroll after MathJax is done rendering
-                    window.scrollTo(0, document.body.scrollHeight);
+            </script>
+            <script>
+                // Ensure content is visible before MathJax loads
+                document.addEventListener('DOMContentLoaded', function() {{
+                    document.body.style.visibility = 'visible';
+                    var content = document.getElementById('chat-content');
+                    if (content) {{
+                        content.style.visibility = 'visible';
+                        content.style.opacity = '1';
+                    }}
                 }});
+
+                // Initialize MathJax and ensure content visibility
+                window.MathJax = {{
+                    startup: {{
+                        pageReady: () => {{
+                            document.body.style.visibility = 'visible';
+                            var content = document.getElementById('chat-content');
+                            if (content) {{
+                                content.style.visibility = 'visible';
+                                content.style.opacity = '1';
+                            }}
+                            return MathJax.startup.defaultPageReady();
+                        }}
+                    }}
+                }};
             </script>
         </head>
         <body>
@@ -382,29 +415,36 @@ class MainWindow(QMainWindow):
                 {self.chat_content}
             </div>
             <script>
-                // Scroll immediately
-                window.scrollTo(0, document.body.scrollHeight);
-                
-                // Scroll again after a delay to catch any dynamic content
-                setTimeout(function() {{ 
+                // Ensure immediate visibility
+                document.body.style.visibility = 'visible';
+                var content = document.getElementById('chat-content');
+                if (content) {{
+                    content.style.visibility = 'visible';
+                    content.style.opacity = '1';
+                }}
+
+                // Scroll handling
+                function scrollToBottom() {{
                     window.scrollTo(0, document.body.scrollHeight);
-                }}, 100);
+                }}
                 
-                // Scroll after all images are loaded
-                window.addEventListener('load', function() {{
-                    window.scrollTo(0, document.body.scrollHeight);
-                }});
+                // Scroll immediately and after any content changes
+                scrollToBottom();
+                setTimeout(scrollToBottom, 100);
+                window.addEventListener('load', scrollToBottom);
                 
                 // Create MutationObserver to watch for content changes
                 const observer = new MutationObserver(function(mutations) {{
-                    window.scrollTo(0, document.body.scrollHeight);
+                    scrollToBottom();
                 }});
                 
                 // Start observing content changes
-                observer.observe(document.getElementById('chat-content'), {{
-                    childList: true,
-                    subtree: true
-                }});
+                if (content) {{
+                    observer.observe(content, {{
+                        childList: true,
+                        subtree: true
+                    }});
+                }}
             </script>
         </body>
         </html>
