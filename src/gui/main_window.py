@@ -1,20 +1,37 @@
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, 
     QTextBrowser, QLineEdit, QLabel,
-    QProgressDialog
+    QProgressDialog, QFileDialog
 )
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import (
     QFont, QTextCursor, QKeySequence, 
-    QShortcut, QDesktopServices, QTextCharFormat
+    QShortcut, QDesktopServices, QTextCharFormat,
+    QPageLayout, QPageSize
 )
+from PyQt6.QtPrintSupport import QPrinter
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
+from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings, QWebEngineProfile
 from ..features.controllers import MainController
 from .workers import APIWorker, ImageGenerationWorker
 from .dialogs import RecordingDialog, ProcessingDialog
 from ..utils.text_formatter import TextFormatter
 from PyQt6.QtWidgets import QApplication
+
+class CustomWebEnginePage(QWebEnginePage):
+    """Custom WebEnginePage to handle link clicks."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        # No need for setLinkDelegationPolicy in PyQt6
+        # Instead, we override acceptNavigationRequest
+
+    def acceptNavigationRequest(self, url, _type, isMainFrame):
+        """Handle navigation requests."""
+        # Open links in default browser
+        if _type == QWebEnginePage.NavigationType.NavigationTypeLinkClicked:
+            QDesktopServices.openUrl(url)
+            return False
+        return super().acceptNavigationRequest(url, _type, isMainFrame)
 
 class MainWindow(QMainWindow):
     """Main window of the application."""
@@ -45,6 +62,10 @@ class MainWindow(QMainWindow):
         # Create chat display with rich text and JavaScript support
         self.chat_display = QWebEngineView()
         self.chat_display.setMinimumSize(200, 200)
+        
+        # Set up custom page for link handling
+        self.web_page = CustomWebEnginePage(self.chat_display)
+        self.chat_display.setPage(self.web_page)
         self.chat_display.page().setBackgroundColor(Qt.GlobalColor.white)
         
         # Enable JavaScript and local content
@@ -74,7 +95,8 @@ class MainWindow(QMainWindow):
             "ESC - Force stop | "
             "Ctrl+Q - Quit | "
             "Ctrl+I - Focus input | "
-            "Ctrl+C - Copy selection"
+            "Ctrl+C - Copy selection | "
+            "Ctrl+E - Export to PDF"
         )
         shortcuts_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(shortcuts_label)
@@ -90,6 +112,7 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+I"), self).activated.connect(
             lambda: self.command_input.setFocus()
         )
+        QShortcut(QKeySequence("Ctrl+E"), self).activated.connect(self.export_to_pdf)
 
     def clear_chat(self):
         """Clear chat and reset to welcome message."""
@@ -563,4 +586,49 @@ class MainWindow(QMainWindow):
         self._enable_input()
         # Auto-focus the input
         self.command_input.setFocus()
-        QApplication.processEvents()  # Ensure focus is applied 
+        QApplication.processEvents()  # Ensure focus is applied
+
+    def export_to_pdf(self):
+        """Export chat content to PDF."""
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save PDF",
+            "",
+            "PDF Files (*.pdf)"
+        )
+        
+        if file_path:
+            if not file_path.lower().endswith('.pdf'):
+                file_path += '.pdf'
+            
+            # Show processing dialog
+            dialog = ProcessingDialog("Exporting to PDF...", self)
+            dialog.show()
+            QApplication.processEvents()
+            
+            try:
+                # Create page layout
+                layout = QPageLayout()
+                layout.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+                layout.setOrientation(QPageLayout.Orientation.Portrait)
+                
+                # Print to PDF using the callback version
+                def handle_pdf_data(pdf_data):
+                    if pdf_data:
+                        try:
+                            with open(file_path, 'wb') as f:
+                                f.write(pdf_data)
+                            self.append_to_chat("\n✨ Chat exported to PDF successfully!")
+                        except Exception as e:
+                            self.append_to_chat(f"\n❌ Error saving PDF: {str(e)}")
+                    else:
+                        self.append_to_chat("\n❌ Failed to export chat to PDF")
+                    dialog.close()
+                
+                self.chat_display.page().printToPdf(handle_pdf_data, layout)
+                
+            except Exception as e:
+                self.append_to_chat(f"\n❌ Error exporting to PDF: {str(e)}")
+                dialog.close()
+            
+            QApplication.processEvents() 
