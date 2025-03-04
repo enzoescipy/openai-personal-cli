@@ -5,7 +5,8 @@ numpy>=1.21.0
 wave
 keyboard>=0.13.5
 pyperclip>=1.8.2
-PyQt6
-PyQt6-WebEngine
+PyQt6>=6.4.0
+PyQt6-WebEngine>=6.4.0
 markdown
-python-markdown-math 
+python-markdown-math
+pynput>=1.7.6 

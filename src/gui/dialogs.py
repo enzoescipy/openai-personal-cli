@@ -36,9 +36,13 @@ class RecordingDialog(QDialog):
         
         # Setup timer for duration display
         self.duration = 0
-        self.timer = QTimer(self)  # Set parent to ensure proper cleanup
+        self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_duration)
         self.timer.start(1000)  # Update every second
+        
+        # Ensure dialog gets keyboard focus
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setFocus()
         
     def update_duration(self):
         """Update the recording duration display."""
@@ -55,9 +59,22 @@ class RecordingDialog(QDialog):
         
     def keyPressEvent(self, event):
         """Handle key press events."""
-        # Prevent ESC from closing the dialog directly
-        if event.key() != Qt.Key.Key_Escape:
+        if event.key() == Qt.Key.Key_Space:
+            print("SPACE key pressed - stopping recording")
+            self.accept()  # Stop recording and accept
+        elif event.key() == Qt.Key.Key_Escape:
+            print("ESC key pressed - canceling recording")
+            self.reject()  # Cancel recording
+        else:
             super().keyPressEvent(event)
+            
+    def showEvent(self, event):
+        """Handle dialog show event."""
+        super().showEvent(event)
+        # Ensure dialog gets keyboard focus when shown
+        self.activateWindow()
+        self.raise_()
+        self.setFocus()
 
 class ProcessingDialog(QProgressDialog):
     """Modal dialog for processing status."""
