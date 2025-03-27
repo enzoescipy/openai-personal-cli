@@ -1,4 +1,6 @@
 #!/bin/bash
+# modify this path as the repository folder position
+cd /Users/godonghyo/Documents/project_repository/openai-personal-cli
 
 # Set Qt environment variables for Apple Silicon
 export QT_MAC_WANTS_LAYER=1

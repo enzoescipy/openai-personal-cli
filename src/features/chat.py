@@ -25,7 +25,7 @@ class ChatManager:
         model = self.settings.get("chat_settings", "model")
         
         # Handle o1-preview specific settings
-        if model == "o1-preview":
+        if model[0] == 'o':
             # For o1-preview, exclude system messages and use fixed temperature
             messages = [msg for msg in self.conversation if msg["role"] != "system"]
             temperature = 1  # o1-preview only supports temperature=1
