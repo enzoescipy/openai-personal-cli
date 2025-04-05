@@ -254,6 +254,15 @@ class MainWindow(QMainWindow):
 
     def _handle_image_generation(self, prompt: str):
         """Handle image generation."""
+        # Add the image command to the conversation history for context
+        full_command = f"/image {prompt}" if not prompt.startswith("/image") else prompt
+        # Store in conversation history
+        self.controller.chat_manager.add_message("user", full_command)
+        
+        # Debug information
+        print(f"\n[DEBUG] Adding to conversation: {full_command}")
+        print(f"[DEBUG] Conversation length: {len(self.controller.chat_manager.conversation)}")
+        
         worker = ImageGenerationWorker(
             self.controller.image_manager,
             prompt,
@@ -310,6 +319,14 @@ class MainWindow(QMainWindow):
     def _handle_image_response(self, image_url: str):
         """Handle image response."""
         if image_url:
+            # Add the image URL to the conversation history
+            self.controller.chat_manager.add_message("assistant", f"Image URL: {image_url}")
+            
+            # Debug information
+            print(f"\n[DEBUG] Adding image URL to conversation: {image_url[:30]}...")
+            print(f"[DEBUG] Conversation length after image: {len(self.controller.chat_manager.conversation)}")
+            
+            # Display in chat
             self.append_to_chat("\n" + "─" * 50)  # Add separator before
             self.append_to_chat("\n🖼️ Image generated:\n")
             self.append_to_chat(image_url, is_url=True)
