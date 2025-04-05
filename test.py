@@ -15,16 +15,14 @@ def test_vision():
     print(f"URL Image Result: {url_result}\n")
     
     # 2. 로컬 이미지 테스트
-    # macOS의 경우 일반적으로 사용자의 Desktop에 있는 이미지를 테스트
     print("\n2. Testing with local image...")
-    home = Path.home()
-    test_image = home / "Desktop" / "test.jpg"  # 테스트할 이미지 경로를 적절히 수정하세요
+    test_image = Path("test.png")  # 프로젝트 루트의 test.png
     
     if test_image.exists():
         local_result = client.analyze_image(
             str(test_image),
-            prompt="이 이미지를 자세히 설명해주세요",
-            detail="auto"
+            prompt="이 이미지에서 보이는 새들의 특징과 전체적인 분위기를 자세히 설명해주세요.",
+            detail="high"
         )
         print(f"Local Image Result: {local_result}\n")
     else:
