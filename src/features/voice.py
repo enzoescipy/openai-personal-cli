@@ -1,5 +1,5 @@
 import threading
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Any, Callable
 import keyboard
 from ..core.api_client import APIClient
 from ..core.settings import Settings
@@ -17,7 +17,7 @@ class VoiceManager:
         )
         self.stop_processing = threading.Event()
 
-    def record_with_dialog(self, parent_window=None) -> Optional[np.ndarray]:
+    def record_with_dialog(self, parent_window: Optional[Any] = None) -> Optional[np.ndarray]:
         """Record audio with a modal dialog. Returns None if cancelled."""
         from ..gui.dialogs import RecordingDialog
         
@@ -39,7 +39,7 @@ class VoiceManager:
         keyboard.unhook_all()
         return recording
 
-    def transcribe_with_dialog(self, recording: np.ndarray, parent_window=None) -> Optional[str]:
+    def transcribe_with_dialog(self, recording: np.ndarray, parent_window: Optional[Any] = None) -> Optional[str]:
         """Transcribe audio with a modal dialog. Returns None if failed."""
         from ..gui.dialogs import ProcessingDialog
         
@@ -65,7 +65,7 @@ class VoiceManager:
         dialog.close()
         return result
 
-    def record_and_transcribe_with_dialog(self, parent_window=None) -> Optional[str]:
+    def record_and_transcribe_with_dialog(self, parent_window: Optional[Any] = None) -> Optional[str]:
         """Record and transcribe audio with modal dialogs."""
         recording = self.record_with_dialog(parent_window)
         if recording is None:
@@ -73,12 +73,12 @@ class VoiceManager:
             
         return self.transcribe_with_dialog(recording, parent_window)
 
-    def force_stop(self):
+    def force_stop(self) -> None:
         """Force stop recording."""
         self.stop_processing.set()
         keyboard.unhook_all()
 
-    def setup_force_stop(self):
+    def setup_force_stop(self) -> None:
         """Setup force stop keyboard shortcut."""
         keyboard.on_press_key('esc', lambda _: self.stop_processing.set())
 
@@ -107,7 +107,7 @@ class VoiceManager:
             )
         return None
 
-    def continuous_voice_mode(self, callback) -> None:
+    def continuous_voice_mode(self, callback: Callable[[str], None]) -> None:
         """Enter continuous voice recording mode."""
         print("\n🎤 Welcome to continuous voice chat mode!")
         print("Have a continuous conversation with the AI using your voice.")

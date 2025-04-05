@@ -163,6 +163,8 @@ class MainWindow(QMainWindow):
             self._handle_image_command(command)
         elif command.startswith('/voice'):
             self._handle_voice_command(command)
+        elif command.startswith('/vision'):
+            self._handle_vision_command(command)
         elif command == '/cpyvoice':
             self._enter_voice_copy_mode()
         elif command == '/quit':
@@ -499,6 +501,10 @@ class MainWindow(QMainWindow):
             "Special commands:\n"
             "- /image [description] : Generate an image using DALL-E 3\n"
             "- /image --with_voice (-v) : Generate an image using voice input\n"
+            "- /vision <url_or_path> [prompt] [--detail=<auto|low|high>] : Analyze an image using GPT-4 Vision\n"
+            "  • URL example: /vision https://example.com/image.jpg \"What's in this image?\"\n"
+            "  • Local file: /vision local \"Describe this image\" --detail=high\n"
+            "    (File picker dialog will open automatically)\n"
             "- /voice : Record and transcribe voice input\n"
             "- /voice --continuous (-c) : Enter continuous voice chat mode\n"
             "- /cpyvoice : Enter the rapid voice copying mode\n"
@@ -649,3 +655,70 @@ class MainWindow(QMainWindow):
                 dialog.close()
             
             QApplication.processEvents() 
+
+    def _handle_vision_command(self, command: str):
+        """Handle vision analysis command."""
+        parts = command[7:].strip().split()
+        
+        # Show usage if no arguments
+        if not parts:
+            self.append_to_chat("\n사용법: /vision <url_or_path> [prompt] [--detail=<auto|low|high>]")
+            return
+            
+        # Check if first argument is URL or local path
+        image_source = parts[0]
+        if not image_source.startswith(('http://', 'https://')):
+            # For local path, show file dialog
+            file_dialog = QFileDialog()
+            file_dialog.setNameFilter("Images (*.png *.jpg *.jpeg *.gif *.webp)")
+            if file_dialog.exec():
+                image_source = file_dialog.selectedFiles()[0]
+            else:
+                return
+        
+        # Parse remaining arguments
+        prompt = None
+        detail = None
+        remaining_args = parts[1:]
+        
+        for i, arg in enumerate(remaining_args):
+            if arg.startswith("--detail="):
+                detail_value = arg.split("=")[1].lower()
+                if detail_value in ['auto', 'low', 'high']:
+                    detail = detail_value
+                else:
+                    self.append_to_chat("\nError: detail must be one of: auto, low, high")
+                    return
+            else:
+                if not prompt:
+                    prompt_parts = []
+                    for p in remaining_args[i:]:
+                        if not p.startswith("--detail="):
+                            prompt_parts.append(p)
+                    prompt = " ".join(prompt_parts)
+                    break
+        
+        # Show loading dialog
+        self._disable_input()
+        dialog = ProcessingDialog("이미지를 분석하는 중...", self)
+        dialog.show()
+        QApplication.processEvents()
+        
+        try:
+            # Call vision analysis
+            result = self.controller.handle_chat_message(f"/vision {image_source}" + 
+                                                       (f" {prompt}" if prompt else "") +
+                                                       (f" --detail={detail}" if detail else ""))
+            
+            if result:
+                self.append_to_chat("\n\n" + "─" * 50 + "\n", format_markdown=False)
+                self.append_to_chat("🔍 이미지 분석 결과:\n", format_markdown=False)
+                self.append_to_chat("─" * 50 + "\n", format_markdown=False)
+                self.append_to_chat(result)
+                self.append_to_chat("\n" + "─" * 50 + "\n", format_markdown=False)
+        except Exception as e:
+            self.append_to_chat(f"\nError analyzing image: {str(e)}")
+        finally:
+            dialog.close()
+            QApplication.processEvents()
+            self._enable_input() 

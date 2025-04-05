@@ -1,4 +1,5 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Sequence
+from openai.types.chat import ChatCompletionMessageParam
 from ..core.api_client import APIClient
 from ..core.settings import Settings
 
@@ -6,7 +7,7 @@ class ChatManager:
     def __init__(self, api_client: APIClient, settings: Settings):
         self.api_client = api_client
         self.settings = settings
-        self.conversation = [
+        self.conversation: List[ChatCompletionMessageParam] = [
             {"role": "system", "content": "You are a helpful assistant. You can also generate images using DALL-E 3 when users type '/image' followed by their image description."}
         ]
 
@@ -33,19 +34,28 @@ class ChatManager:
             messages = self.conversation
             temperature = self.settings.get("chat_settings", "temperature")
         
-        response = self.api_client.chat_completion(
-            messages=messages, # type: ignore
-            model=model,
-            temperature=temperature
-        )
-        
-        if response and response.choices:
-            assistant_response = response.choices[0].message.content
-            self.add_message("assistant", assistant_response)# type: ignore
-            return assistant_response
-        return None
+        try:
+            response = self.api_client.chat_completion(
+                messages=messages,
+                model=model,
+                temperature=temperature
+            )
+            
+            if response is None:
+                return None
+                
+            if hasattr(response, 'choices') and response.choices and response.choices[0].message:
+                assistant_response = response.choices[0].message.content
+                if assistant_response:
+                    self.add_message("assistant", assistant_response)
+                    return assistant_response
+            return None
+            
+        except Exception as e:
+            print(f"Error getting chat response: {e}")
+            return None
 
-    def format_conversation(self, messages: List[Dict[str, str]]) -> str:
+    def format_conversation(self, messages: Sequence[Dict[str, str]]) -> str:
         """Format conversation messages for context."""
         formatted = []
         for msg in messages:
@@ -61,7 +71,7 @@ class ChatManager:
                 formatted.append(f"{role}: {content}")
         return "\n".join(formatted)
 
-    def get_recent_context(self, max_context: int = None) -> List[Dict[str, str]]:
+    def get_recent_context(self, max_context: Optional[int] = None) -> List[ChatCompletionMessageParam]:
         """Get recent conversation context."""
         if max_context is None:
             max_context = self.settings.get("chat_settings", "max_conversation_history")

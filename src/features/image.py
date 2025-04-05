@@ -1,11 +1,59 @@
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Literal, Sequence
+from openai.types.chat import ChatCompletionMessageParam
 from ..core.api_client import APIClient
 from ..core.settings import Settings
+import re
+from pathlib import Path
 
 class ImageManager:
     def __init__(self, api_client: APIClient, settings: Settings):
         self.api_client = api_client
         self.settings = settings
+
+    def analyze_image(self, input_source: str, prompt: Optional[str] = None, detail: Optional[Literal['auto', 'low', 'high']] = None) -> Optional[str]:
+        """
+        Analyze an image from URL or local file path.
+        
+        Args:
+            input_source: URL or file path of the image
+            prompt: Custom prompt for image analysis
+            detail: Level of detail for analysis
+            
+        Returns:
+            Analysis result or None if error occurs
+        """
+        # URL 패턴 확인
+        url_pattern = re.compile(r'^https?://')
+        
+        # 입력이 URL인지 확인
+        if url_pattern.match(input_source):
+            # URL에서 쿼리 파라미터 제거하고 파일 확장자 확인
+            base_url = input_source.split('?')[0]
+            # 실제 파일 확장자가 없더라도 이미지 타입이면 허용 (blob URL 등)
+            if not (base_url.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')) or
+                   'image/' in input_source.lower()):
+                print("Error: URL must point to a supported image file (PNG, JPG, JPEG, GIF, WEBP) or be an image blob")
+                return None
+        else:
+            # 로컬 파일 경로 처리
+            file_path = Path(input_source)
+            if not file_path.exists():
+                print(f"Error: File not found: {input_source}")
+                return None
+            if not file_path.suffix.lower() in ['.png', '.jpg', '.jpeg', '.gif', '.webp']:
+                print("Error: Unsupported file format. Please use PNG, JPG, JPEG, GIF, or WEBP")
+                return None
+        
+        try:
+            # Vision API 호출
+            return self.api_client.analyze_image(
+                image_source=input_source,
+                prompt=prompt or "이 이미지를 자세히 설명해주세요.",
+                detail=detail
+            )
+        except Exception as e:
+            print(f"Error analyzing image: {str(e)}")
+            return None
 
     def generate_with_context(self, prompt: str, conversation: List[Dict[str, str]]) -> Optional[str]:
         """Generate image with conversation context."""
@@ -79,7 +127,7 @@ class ImageManager:
             quality=self.settings.get("image_settings", "quality")
         )
         
-    def _enhance_prompt_with_gpt(self, conversation: List[Dict[str, str]], current_prompt: str, 
+    def _enhance_prompt_with_gpt(self, conversation: Sequence[Dict[str, str]], current_prompt: str, 
                                previous_image_requests: List[str]) -> Optional[str]:
         """Enhance the image prompt using GPT."""
         # Create context message
@@ -88,24 +136,27 @@ class ImageManager:
             previous_requests_context = "Previous image requests: " + "; ".join(previous_image_requests) + ". "
         
         # Create GPT prompt
-        context_messages = [
+        context_messages: List[ChatCompletionMessageParam] = [
             {"role": "system", "content": "You are an expert image prompt creator. Your task is to create a detailed, descriptive prompt for DALL-E 3 image generation based on the conversation context and the user's specific request. Focus on visual elements mentioned in the conversation, maintaining the user's intent while adding descriptive details. Create a cohesive scene that captures the essence of what's being discussed."},
             {"role": "user", "content": f"{previous_requests_context}Based on the conversation context and previous image requests, create a detailed prompt for generating this image: {current_prompt}"}
         ]
         
         # Get enhanced prompt from GPT
-        response = self.api_client.chat_completion(
-            messages=context_messages,
-            model=self.settings.get("chat_settings", "model"),
-            temperature=self.settings.get("chat_settings", "temperature")
-        )
-        
-        # Extract content safely
         try:
+            response = self.api_client.chat_completion(
+                messages=context_messages,
+                model=self.settings.get("chat_settings", "model"),
+                temperature=self.settings.get("chat_settings", "temperature")
+            )
+            
+            # Extract content safely
+            if response is None:
+                return None
+                
             # Try different ways to access content based on response type
-            if hasattr(response, 'choices') and len(response.choices) > 0:
+            if hasattr(response, 'choices') and response.choices and response.choices[0].message:
                 enhanced_prompt = response.choices[0].message.content
-            elif isinstance(response, dict) and 'choices' in response and response['choices']:
+            elif isinstance(response, dict) and response.get('choices') and response['choices'][0].get('message', {}).get('content'):
                 enhanced_prompt = response['choices'][0]['message']['content']
             else:
                 return None
@@ -114,8 +165,9 @@ class ImageManager:
                 print("\nEnhanced prompt:", enhanced_prompt)
                 
             return enhanced_prompt
+            
         except Exception as e:
-            print(f"Error extracting enhanced prompt: {e}")
+            print(f"Error enhancing prompt with GPT: {e}")
             return None
 
     def _format_conversation(self, messages: List[Dict[str, str]]) -> str:
