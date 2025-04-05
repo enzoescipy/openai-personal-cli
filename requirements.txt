@@ -1,4 +1,4 @@
-openai>=1.0.0
+openai>=1.12.0
 python-dotenv>=0.19.0
 sounddevice>=0.4.6
 numpy>=1.21.0
@@ -9,4 +9,6 @@ PyQt6>=6.4.0
 PyQt6-WebEngine>=6.4.0
 markdown
 python-markdown-math
-pynput>=1.7.6 
+pynput>=1.7.6
+Pillow>=10.0.0
+requests>=2.31.0 

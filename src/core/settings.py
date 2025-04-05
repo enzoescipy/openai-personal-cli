@@ -15,6 +15,12 @@ class Settings:
                 "temperature": 0.7,
                 "max_conversation_history": 5
             },
+            "vision_settings": {
+                "model": "gpt-4o",
+                "max_tokens": 1000,
+                "detail": "auto",
+                "available_details": ["auto", "low", "high"]
+            },
             "image_settings": {
                 "model": "dall-e-3",
                 "size": "1024x1024",
@@ -22,8 +28,12 @@ class Settings:
                 "quality": "standard",
                 "available_qualities": ["standard", "hd"],
                 "max_context_history": 20,
-                "use_raw_prompt": True,
-                "filter_model": None
+                "use_raw_prompt": False,
+                "prompt_processor": {
+                    "model": "gpt-4o",
+                    "temperature": 0.7,
+                    "system_prompt": "You are a creative assistant that helps enhance image generation prompts. Your goal is to make the prompts more detailed and effective for DALL-E image generation while maintaining the user's original intent."
+                }
             },
             "voice_settings": {
                 "enabled": True,

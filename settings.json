@@ -4,14 +4,21 @@
         "model": "gpt-4o",
         // "model": "o3-mini",
         "available_models": [
-            "gpt-3.5-turbo",
-            "gpt-4o",
-            "gpt-4o-mini",
             "o1",
             "o3-mini"
         ],
         "temperature": 0.7, // Note: This setting is ignored for o1-preview which always uses temperature=1
         "max_conversation_history": 5
+    },
+    "vision_settings": {
+        "model": "gpt-4o",
+        "max_tokens": 1000,
+        "detail": "auto",
+        "available_details": [
+            "auto",
+            "low",
+            "high"
+        ]
     },
     "image_settings": {
         "model": "dall-e-3",
@@ -29,7 +36,12 @@
             "hd"
         ],
         "max_context_history": 20,
-        "use_raw_prompt": false // Set to false if you want to use GPT to enhance prompts
+        "use_raw_prompt": false, // Set to false if you want to use GPT to enhance prompts
+        "prompt_processor": {
+            "model": "gpt-4o", // Fixed model for prompt processing regardless of chat model
+            "temperature": 0.7,
+            "system_prompt": "You are a creative assistant that helps enhance image generation prompts. Your goal is to make the prompts more detailed and effective for DALL-E image generation while maintaining the user's original intent."
+        }
     },
     "voice_settings": {
         "enabled": true,
