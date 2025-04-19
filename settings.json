@@ -36,7 +36,7 @@
             "hd"
         ],
         "max_context_history": 20,
-        "use_raw_prompt": false, // Set to false if you want to use GPT to enhance prompts
+        "use_raw_prompt": true, // Set to false if you want to use GPT to enhance prompts
         "prompt_processor": {
             "model": "gpt-4o", // Fixed model for prompt processing regardless of chat model
             "temperature": 0.7,
