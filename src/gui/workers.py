@@ -1,6 +1,11 @@
 from PyQt6.QtCore import QThread, pyqtSignal
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, List, Dict, Literal
 import os
+
+# Import necessary types for hinting, check for circular imports later if issues arise
+from ..features.controllers import MainController
+from ..features.image import ImageManager
+# from ..core.api_client import APIClient # Not directly used in constructors here
 
 class APIWorker(QThread):
     """Worker thread for API calls."""
@@ -31,9 +36,29 @@ class APIWorker(QThread):
 
 class ImageGenerationWorker(APIWorker):
     """Worker thread specifically for image generation."""
-    def __init__(self, image_manager, prompt: str, conversation: list):
+    def __init__(self, image_manager: ImageManager, prompt: str, conversation: list):
+        # Note: Passing the manager instance might be cleaner than passing the method
         super().__init__(
             image_manager.generate_with_context,
             prompt,
             conversation
+        )
+
+class ChatWorker(APIWorker):
+    """Worker thread for handling chat messages."""
+    def __init__(self, controller: MainController, message: str):
+        # We call controller.handle_chat_message which internally calls chat_manager
+        super().__init__(
+            controller.handle_chat_message, 
+            message
+        )
+
+class VisionWorker(APIWorker):
+    """Worker thread for handling vision analysis."""
+    # Vision analysis is also handled by controller.handle_chat_message based on command prefix
+    # So it uses the same structure as ChatWorker for now.
+    def __init__(self, controller: MainController, command: str):
+        super().__init__(
+            controller.handle_chat_message, 
+            command # The command already contains /vision prefix and args
         ) 
