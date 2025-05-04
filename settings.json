@@ -1,7 +1,7 @@
 {
     "chat_settings": {
         // https://platform.openai.com/docs/models
-        "model": "gpt-4o",
+        "model": "gpt-4.1",
         // "model": "o3-mini",
         "available_models": [
             "o1",
@@ -11,7 +11,7 @@
         "max_conversation_history": 5
     },
     "vision_settings": {
-        "model": "gpt-4o",
+        "model": "gpt-4.1",
         "max_tokens": 1000,
         "detail": "auto",
         "available_details": [
@@ -38,7 +38,7 @@
         "max_context_history": 20,
         "use_raw_prompt": true, // Set to false if you want to use GPT to enhance prompts
         "prompt_processor": {
-            "model": "gpt-4o", // Fixed model for prompt processing regardless of chat model
+            "model": "gpt-4.1", // Fixed model for prompt processing regardless of chat model
             "temperature": 0.7,
             "system_prompt": "You are a creative assistant that helps enhance image generation prompts. Your goal is to make the prompts more detailed and effective for DALL-E image generation while maintaining the user's original intent."
         }
