@@ -36,10 +36,10 @@ class APIClient:
         
     def _initialize_client(self) -> openai.Client:
         """Initialize the OpenAI client with API key."""
-        load_dotenv('openai-key.env')
+        load_dotenv('.env')
         api_key = os.getenv('OPENAI_API_KEY')
         if not api_key:
-            raise ValueError("Please set OPENAI_API_KEY in openai-key.env file")
+            raise ValueError("Please set OPENAI_API_KEY in .env file")
         return openai.Client(api_key=api_key)
 
     def chat_completion(
@@ -83,6 +83,9 @@ class APIClient:
     ) -> Optional[str]:
         """Generate image using DALL-E."""
         try:
+            print("prompt: ",prompt, "model: ",model)
+            if len(prompt) == 0:
+                raise Exception("Empty prompt for image generation.")
             response = self.client.images.generate(
                 model=model,
                 prompt=prompt,

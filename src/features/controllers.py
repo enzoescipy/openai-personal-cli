@@ -1,7 +1,6 @@
 from ..core.api_client import APIClient
 from ..core.settings import Settings
 from .chat import ChatManager
-from .voice import VoiceManager
 from .image import ImageManager
 from typing import Optional, Literal, cast
 
@@ -11,7 +10,6 @@ class MainController:
         self.settings = settings
         self.api_client = APIClient()
         self.chat_manager = ChatManager(self.api_client, settings)
-        self.voice_manager = VoiceManager(self.api_client, settings)
         self.image_manager = ImageManager(self.api_client, settings)
 
     def handle_chat_message(self, message: str) -> Optional[str]:
@@ -70,7 +68,8 @@ class MainController:
 
     def force_stop(self):
         """Force stop all operations."""
-        self.voice_manager.force_stop()
+        # No active components to stop currently other than background workers handled by MainWindow
+        pass
 
     def cleanup(self):
         """Clean up resources."""

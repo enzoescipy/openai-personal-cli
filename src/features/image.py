@@ -90,34 +90,69 @@ class ImageManager:
         # Limit to last 3 previous requests for clarity
         previous_image_requests = previous_image_requests[-3:] if len(previous_image_requests) > 3 else previous_image_requests
         
-        # Build the context-aware prompt
+        # --- Create Conversation Summary (for both raw and enhanced prompt context) ---
+        conversation_summary = ""
+        # Take last ~5 messages for summary, excluding system/image results
+        summary_context_limit = 5 
+        relevant_messages = []
+        for msg in reversed(recent_conversation):
+            role = msg.get("role")
+            content = msg.get("content", "")
+            # Skip system, image URLs/results, and the current image command itself
+            if (role == "system" or 
+                "Image URL:" in content or 
+                "I've generated an image" in content or 
+                (role == "user" and content.startswith("/image") and content[7:].strip() == current_prompt)):
+                continue
+            # Reformat image requests for context
+            if role == "user" and content.startswith("/image"):
+                 image_description = content[7:].strip()
+                 if image_description:
+                     relevant_messages.insert(0, f"User (requested image): {image_description}")
+            elif role in ["user", "assistant"]:
+                 # Limit content length for summary
+                 summary_content = content[:100] + ('...' if len(content) > 100 else '')
+                 relevant_messages.insert(0, f"{role.capitalize()}: {summary_content}")
+            
+            if len(relevant_messages) >= summary_context_limit:
+                break
+        
+        if relevant_messages:
+            conversation_summary = "Conversation context: \n" + "\n".join(relevant_messages) + "\n\n"
+        # --- End Conversation Summary ---
+
+        # Build the context-aware prompt parts
         context_prefix = ""
         if previous_image_requests:
             # Only include context if we have previous requests
-            context_prefix = "Previous image: "
+            context_prefix = "Previous image requests: "
             if len(previous_image_requests) == 1:
                 context_prefix += f"{previous_image_requests[0]}. "
             else:
                 # Multiple previous requests, list them in progression
                 context_prefix += f"{'. Then, '.join(previous_image_requests)}. "
         
-        # Form final prompt
-        final_prompt = f"{context_prefix}Now, {current_prompt}"
+        # Form final prompt (using summary, previous requests, and current request)
+        # This will be the base for both raw and enhanced prompts
+        final_prompt = f"{conversation_summary}{context_prefix}Now, generate an image of: {current_prompt}"
         
         # Debug information
+        print("\n대화 요약 (프롬프트용):", conversation_summary if conversation_summary else "(없음)")
         print("\n이전 이미지 요청들:", previous_image_requests)
-        print("최종 이미지 프롬프트:", final_prompt)
+        print("기본 조합 프롬프트:", final_prompt)
         
         # If not using raw prompt, enhance with GPT
         if not use_raw_prompt:
             try:
                 enhanced_prompt = self._enhance_prompt_with_gpt(recent_conversation, current_prompt, previous_image_requests)
                 if enhanced_prompt:
-                    final_prompt = enhanced_prompt
+                    final_prompt = enhanced_prompt # Overwrite with enhanced prompt
+                    print("\n향상된 프롬프트 사용:", final_prompt)
             except Exception as e:
                 print(f"Error enhancing prompt with GPT: {e}")
                 # Continue with original prompt if enhancement fails
                 pass
+        # No else block needed here, final_prompt already holds the base combination
         
         # Generate image with final prompt
         return self.api_client.generate_image(
@@ -130,16 +165,28 @@ class ImageManager:
     def _enhance_prompt_with_gpt(self, conversation: Sequence[Dict[str, str]], current_prompt: str, 
                                previous_image_requests: List[str]) -> Optional[str]:
         """Enhance the image prompt using GPT."""
-        # Create context message
+        # Create context message for previous requests
         previous_requests_context = ""
         if previous_image_requests:
             previous_requests_context = "Previous image requests: " + "; ".join(previous_image_requests) + ". "
         
-        # Create GPT prompt
+        # Prepare conversation history for the prompt enhancement request
+        # Filter out system messages if needed, depending on the model (similar logic to ChatManager might be needed)
+        # For simplicity now, let's pass the recent conversation directly.
+        # We might need to format/filter this further later.
+        history_messages = list(conversation) # Make a copy to avoid modifying the original
+
+        # Create the final user prompt for enhancement request
+        enhancement_request_prompt = f"{previous_requests_context}Based on the conversation context and previous image requests, create a detailed prompt for generating this image: {current_prompt}"
+
+        # Construct messages for GPT: system + history + final user request
         context_messages: List[ChatCompletionMessageParam] = [
-            {"role": "system", "content": "You are an expert image prompt creator. Your task is to create a detailed, descriptive prompt for DALL-E 3 image generation based on the conversation context and the user's specific request. Focus on visual elements mentioned in the conversation, maintaining the user's intent while adding descriptive details. Create a cohesive scene that captures the essence of what's being discussed."},
-            {"role": "user", "content": f"{previous_requests_context}Based on the conversation context and previous image requests, create a detailed prompt for generating this image: {current_prompt}"}
+            {"role": "system", "content": "You are an expert image prompt creator. Your task is to create a detailed, descriptive prompt for DALL-E 3 image generation based on the conversation context and the user's specific request. Focus on visual elements mentioned in the conversation, maintaining the user's intent while adding descriptive details. Create a cohesive scene that captures the essence of what's being discussed."}
         ]
+        # Add conversation history
+        context_messages.extend(history_messages) # type: ignore
+        # Add the final user request
+        context_messages.append({"role": "user", "content": enhancement_request_prompt})
         
         # Get enhanced prompt from GPT
         try:
@@ -161,8 +208,9 @@ class ImageManager:
             else:
                 return None
             
-            if self.settings.get("cli_settings", "show_enhanced_prompt"):
-                print("\nEnhanced prompt:", enhanced_prompt)
+            # Removed cli_settings check as it was removed from settings
+            # We might add a specific setting for this later if needed
+            # print("\nEnhanced prompt:", enhanced_prompt)
                 
             return enhanced_prompt
             

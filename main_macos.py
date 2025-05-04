@@ -12,16 +12,8 @@ def init_macos_specific():
     # Enable Metal/OpenGL
     QApplication.setAttribute(Qt.ApplicationAttribute.AA_UseDesktopOpenGL)
     
-    # Set environment variables for macOS keyboard handling
-    os.environ['PYNPUT_KEYBOARD_MONITORING'] = '1'
-    
-    # Configure macOS-specific settings for voice recognition
-    try:
-        import pynput
-        print("pynput successfully imported for macOS keyboard handling")
-    except ImportError:
-        print("Warning: pynput not installed. Voice recording keyboard controls may not work.")
-        print("Try installing with: pip install pynput")
+    # Removed environment variable setting for pynput
+    # Removed pynput import and related checks
 
 def main():
     # Initialize macOS specific settings

@@ -34,19 +34,6 @@ class Settings:
                     "temperature": 0.7,
                     "system_prompt": "You are a creative assistant that helps enhance image generation prompts. Your goal is to make the prompts more detailed and effective for DALL-E image generation while maintaining the user's original intent."
                 }
-            },
-            "voice_settings": {
-                "enabled": True,
-                "sample_rate": 44100,
-                "channels": 1,
-                "duration": 5,
-                "model": "whisper-1",
-                "language": "en"
-            },
-            "cli_settings": {
-                "show_enhanced_prompt": True,
-                "save_images_locally": False,
-                "images_directory": "generated_images"
             }
         }
         

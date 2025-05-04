@@ -14,7 +14,7 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings, QWebEngineProfile
 from ..features.controllers import MainController
 from .workers import APIWorker, ImageGenerationWorker
-from .dialogs import RecordingDialog, ProcessingDialog
+from .dialogs import ProcessingDialog
 from ..utils.text_formatter import TextFormatter
 from PyQt6.QtWidgets import QApplication
 
@@ -40,8 +40,6 @@ class MainWindow(QMainWindow):
         self.controller = controller
         
         # State tracking
-        self.is_voice_copy_mode = False
-        self.is_continuous_voice_mode = False
         self.active_workers = []
         self.current_progress_dialog = None
         self.chat_content = ""  # Store chat content
@@ -66,14 +64,18 @@ class MainWindow(QMainWindow):
         # Set up custom page for link handling
         self.web_page = CustomWebEnginePage(self.chat_display)
         self.chat_display.setPage(self.web_page)
-        self.chat_display.page().setBackgroundColor(Qt.GlobalColor.white)
+        page = self.chat_display.page()
+        if page:
+            page.setBackgroundColor(Qt.GlobalColor.white)
         
         # Enable JavaScript and local content
-        settings = self.chat_display.page().settings()
-        settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
-        settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
-        settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True)
-        settings.setAttribute(QWebEngineSettings.WebAttribute.AllowRunningInsecureContent, True)
+        if page:
+            settings = page.settings()
+            if settings:
+                settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+                settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
+                settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True)
+                settings.setAttribute(QWebEngineSettings.WebAttribute.AllowRunningInsecureContent, True)
         
         layout.addWidget(self.chat_display)
         
@@ -125,8 +127,8 @@ class MainWindow(QMainWindow):
         self.append_to_chat("\n❌ Operation force stopped!")
         
         # Maintain mode state if in special mode
-        if self.is_voice_copy_mode or self.is_continuous_voice_mode:
-            self.append_to_chat("\n\n⏳ Press ENTER to start recording (or type 'exit' to quit)")
+        # Removed: if self.is_voice_copy_mode or self.is_continuous_voice_mode:
+        # Removed:    self.append_to_chat("\n\n⏳ Press ENTER to start recording (or type 'exit' to quit)")
 
     def handle_command(self):
         """Handle command input."""
@@ -134,18 +136,20 @@ class MainWindow(QMainWindow):
         self.command_input.clear()
 
         if not command:
-            if self.is_voice_copy_mode:
-                self._start_voice_copy()
-            elif self.is_continuous_voice_mode:
-                self._start_voice_chat()
+            # Removed: if self.is_voice_copy_mode:
+            # Removed:    self._start_voice_copy()
+            # Removed: elif self.is_continuous_voice_mode:
+            # Removed:    self._start_voice_chat()
             return
 
         # Handle mode exits
         if command.lower() == 'exit':
-            if self.is_voice_copy_mode:
-                self._exit_voice_copy_mode()
-            elif self.is_continuous_voice_mode:
-                self._exit_continuous_voice_mode()
+            # Removed: if self.is_voice_copy_mode:
+            # Removed:    self._exit_voice_copy_mode()
+            # Removed: elif self.is_continuous_voice_mode:
+            # Removed:    self._exit_continuous_voice_mode()
+            # If not in a special mode, 'exit' does nothing special for now.
+            # We might want to add a general exit confirmation later.
             return
 
         # Add command to display
@@ -161,14 +165,12 @@ class MainWindow(QMainWindow):
         """Handle special commands."""
         if command.startswith('/image'):
             self._handle_image_command(command)
-        elif command.startswith('/voice'):
-            self._handle_voice_command(command)
         elif command.startswith('/vision'):
             self._handle_vision_command(command)
-        elif command == '/cpyvoice':
-            self._enter_voice_copy_mode()
         elif command == '/quit':
             self.close()
+        else:
+            self.append_to_chat(f"\nUnknown command: {command}")
 
     def _handle_chat_message(self, message: str):
         """Handle regular chat message."""
@@ -202,57 +204,7 @@ class MainWindow(QMainWindow):
             self.append_to_chat("\nPlease provide an image description")
             return
 
-        if parts[0] in ['--with_voice', '-v']:
-            # Use blocking voice recording approach
-            self._disable_input()
-            transcription = self.controller.voice_manager.record_and_transcribe_with_dialog(self)
-            
-            if transcription:
-                # Show the transcription
-                self.append_to_chat("\n" + "─" * 50)
-                self.append_to_chat(f"\n📝 Voice description: {transcription}")
-                self.append_to_chat("\n" + "─" * 50 + "\n")
-                
-                # Combine with any additional text
-                image_prompt = transcription
-                if len(parts) > 1:
-                    additional_text = ' '.join(parts[1:])
-                    image_prompt += f" {additional_text}"
-                    self.append_to_chat(f"Additional text: {additional_text}\n")
-                
-                # Generate image
-                self._handle_image_generation(image_prompt)
-            else:
-                self.append_to_chat("\n❌ Voice input cancelled or failed")
-                self._enable_input()
-        else:
-            self._handle_image_generation(command[6:].strip())
-
-    def _handle_voice_command(self, command: str):
-        """Handle voice command."""
-        if command in ['/voice --continuous', '/voice -c']:
-            self._enter_continuous_voice_mode()
-        else:
-            self._handle_voice_recording()
-
-    def _handle_voice_recording(self):
-        """Handle single voice recording and transcription."""
-        self._disable_input()
-        
-        # Record and transcribe
-        transcription = self.controller.voice_manager.record_and_transcribe_with_dialog(self)
-        
-        if transcription:
-            # Show the transcription
-            self.append_to_chat("\n" + "─" * 50)
-            self.append_to_chat(f"\n📝 Your voice input: {transcription}")
-            self.append_to_chat("\n" + "─" * 50 + "\n")
-            
-            # Process as chat message
-            self._handle_chat_message(transcription)
-        else:
-            self.append_to_chat("\n❌ Voice input cancelled or failed")
-            self._enable_input()
+        self._handle_image_generation(command[6:].strip())
 
     def _handle_image_generation(self, prompt: str):
         """Handle image generation."""
@@ -274,7 +226,7 @@ class MainWindow(QMainWindow):
         worker.error_occurred.connect(self._handle_error)
         self._start_worker(worker, "Generating image with DALL-E...")
 
-    def _start_worker(self, worker, loading_message: str = None):
+    def _start_worker(self, worker, loading_message: str):
         """Start a worker thread with optional loading dialog."""
         # Keep reference to prevent garbage collection
         self.active_workers.append(worker)
@@ -308,7 +260,6 @@ class MainWindow(QMainWindow):
 
     def _cancel_current_operation(self):
         """Cancel current operation."""
-        self.controller.force_stop()
         for worker in self.active_workers:
             worker.cancel()
         self._enable_input()
@@ -334,21 +285,6 @@ class MainWindow(QMainWindow):
             self.append_to_chat(image_url, is_url=True)
             self.append_to_chat("\n" + "─" * 50 + "\n")  # Add separator after with extra newline
 
-    def _handle_transcription_response(self, transcription: str):
-        """Handle transcription response."""
-        print(f"\n[DEBUG] Received transcription response: {transcription}")
-        if transcription:
-            # Clear any previous status messages
-            self.append_to_chat("\n" + "─" * 50)
-            self.append_to_chat(f"\n📝 Your voice input: {transcription}")
-            self.append_to_chat("\n" + "─" * 50 + "\n")
-            print("[DEBUG] About to handle chat message with transcription")
-            # Process the transcribed text as a chat message
-            self._handle_chat_message(transcription)
-        else:
-            self.append_to_chat("\n❌ Voice input cancelled or failed")
-            self._enable_input()
-
     def _disable_input(self):
         """Disable input."""
         self.command_input.setEnabled(False)
@@ -357,12 +293,7 @@ class MainWindow(QMainWindow):
     def _enable_input(self):
         """Enable input."""
         self.command_input.setEnabled(True)
-        if self.is_voice_copy_mode:
-            self.command_input.setPlaceholderText("Press ENTER to record, type 'exit' to quit")
-        elif self.is_continuous_voice_mode:
-            self.command_input.setPlaceholderText("Press ENTER to record, type 'exit' to quit")
-        else:
-            self.command_input.setPlaceholderText("Type a command or message...")
+        self.command_input.setPlaceholderText("Type a command or message...")
 
     def append_to_chat(self, text: str, is_url: bool = False, format_markdown: bool = True):
         """Append text to chat display with optional Markdown and LaTeX formatting."""
@@ -500,161 +431,20 @@ class MainWindow(QMainWindow):
             "Welcome to the OpenAI Chat CLI!\n\n"
             "Special commands:\n"
             "- /image [description] : Generate an image using DALL-E 3\n"
-            "- /image --with_voice (-v) : Generate an image using voice input\n"
             "- /vision <url_or_path> [prompt] [--detail=<auto|low|high>] : Analyze an image using GPT-4 Vision\n"
             "  • URL example: /vision https://example.com/image.jpg \"What's in this image?\"\n"
             "  • Local file: /vision local \"Describe this image\" --detail=high\n"
             "    (File picker dialog will open automatically)\n"
-            "- /voice : Record and transcribe voice input\n"
-            "- /voice --continuous (-c) : Enter continuous voice chat mode\n"
-            "- /cpyvoice : Enter the rapid voice copying mode\n"
             "-"  # DO NOT edit this line
         )
         self.chat_content = f"<pre>{welcome_text}</pre>"
         self.update_chat_display()
 
     def closeEvent(self, event):
-        """Handle application shutdown."""
-        self.controller.cleanup()
-        for worker in self.active_workers:
-            worker.cancel()
-            worker.wait()
-        super().closeEvent(event)
-
-    def _enter_continuous_voice_mode(self):
-        """Enter continuous voice chat mode."""
-        self.is_continuous_voice_mode = True
-        self.append_to_chat("\n🎤 Welcome to continuous voice chat mode!")
-        self.append_to_chat("\nHave a continuous conversation with the AI using your voice.")
-        self.append_to_chat("\nInstructions:")
-        self.append_to_chat("\n- Press ENTER to start recording your message")
-        self.append_to_chat("\n- Press SPACEBAR to stop recording")
-        self.append_to_chat("\n- Press ESC to force-stop current recording")
-        self.append_to_chat("\n- Type 'exit' to quit this mode")
-        self.append_to_chat("\n\n⏳ Press ENTER to start recording (or type 'exit' to quit)")
-        self.command_input.setPlaceholderText("Press ENTER to record, type 'exit' to quit")
-        self.command_input.setFocus()
-        QApplication.processEvents()  # Ensure focus is applied
-
-    def _exit_continuous_voice_mode(self):
-        """Exit continuous voice chat mode."""
-        self.is_continuous_voice_mode = False
-        self.append_to_chat("\nExiting continuous voice chat mode...")
-        self.command_input.setPlaceholderText("Type a command or message...")
-        self.command_input.setFocus()
-
-    def _start_voice_chat(self):
-        """Start voice recording for chat mode."""
-        self._disable_input()
-        
-        # Record and transcribe
-        transcription = self.controller.voice_manager.record_and_transcribe_with_dialog(self)
-        
-        if transcription:
-            # Show the transcription
-            self.append_to_chat("\n" + "─" * 50)
-            self.append_to_chat(f"\n📝 Your voice input: {transcription}")
-            self.append_to_chat("\n" + "─" * 50 + "\n")
-            
-            # Process as chat message
-            self._handle_chat_message(transcription)
-        else:
-            self.append_to_chat("\n❌ Voice input cancelled or failed")
-            
-        # Re-enable input and show prompt for next recording
-        if self.is_continuous_voice_mode:
-            self.append_to_chat("\n\n⏳ Press ENTER to start recording (or type 'exit' to quit)")
-            self._enable_input()
-            # Auto-focus the input
-            self.command_input.setFocus()
-            QApplication.processEvents()  # Ensure focus is applied
-
-    def _enter_voice_copy_mode(self):
-        """Enter voice copy mode."""
-        self.is_voice_copy_mode = True
-        self.append_to_chat("\n🎤 Welcome to voice copying mode!")
-        self.append_to_chat("\nYour voice will be automatically converted to text and copied to clipboard.")
-        self.append_to_chat("\n\n⏳ Press ENTER to start recording (or type 'exit' to quit)")
-        self.command_input.setPlaceholderText("Press ENTER to record, type 'exit' to quit")
-        self.command_input.setFocus()
-        QApplication.processEvents()  # Ensure focus is applied
-
-    def _exit_voice_copy_mode(self):
-        """Exit voice copy mode."""
-        self.is_voice_copy_mode = False
-        self.append_to_chat("\nExiting voice copy mode...")
-        self.command_input.setPlaceholderText("Type a command or message...")
-        self.command_input.setFocus()
-
-    def _start_voice_copy(self):
-        """Start voice recording for copy mode."""
-        self._handle_voice_copy(None)
-
-    def _handle_voice_copy(self, recording):
-        """Handle voice recording for copy mode."""
-        self._disable_input()
-        
-        # Record and transcribe
-        transcription = self.controller.voice_manager.record_and_transcribe_with_dialog(self)
-        
-        if transcription:
-            self.append_to_chat(f"\n📝 Transcribed text: {transcription}")
-            import pyperclip
-            pyperclip.copy(transcription)
-            self.append_to_chat("\n✨ Text copied to clipboard!")
-        else:
-            self.append_to_chat("\n❌ Voice input cancelled or failed")
-        
-        self.append_to_chat("\n\n⏳ Press ENTER to start recording (or type 'exit' to quit)")
-        self._enable_input()
-        # Auto-focus the input
-        self.command_input.setFocus()
-        QApplication.processEvents()  # Ensure focus is applied
-
-    def export_to_pdf(self):
-        """Export chat content to PDF."""
-        file_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save PDF",
-            "",
-            "PDF Files (*.pdf)"
-        )
-        
-        if file_path:
-            if not file_path.lower().endswith('.pdf'):
-                file_path += '.pdf'
-            
-            # Show processing dialog
-            dialog = ProcessingDialog("Exporting to PDF...", self)
-            dialog.show()
-            QApplication.processEvents()
-            
-            try:
-                # Create page layout
-                layout = QPageLayout()
-                layout.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
-                layout.setOrientation(QPageLayout.Orientation.Portrait)
-                
-                # Print to PDF using the callback version
-                def handle_pdf_data(pdf_data):
-                    if pdf_data:
-                        try:
-                            with open(file_path, 'wb') as f:
-                                f.write(pdf_data)
-                            self.append_to_chat("\n✨ Chat exported to PDF successfully!")
-                        except Exception as e:
-                            self.append_to_chat(f"\n❌ Error saving PDF: {str(e)}")
-                    else:
-                        self.append_to_chat("\n❌ Failed to export chat to PDF")
-                    dialog.close()
-                
-                self.chat_display.page().printToPdf(handle_pdf_data, layout)
-                
-            except Exception as e:
-                self.append_to_chat(f"\n❌ Error exporting to PDF: {str(e)}")
-                dialog.close()
-            
-            QApplication.processEvents() 
+        """Close the application."""
+        self._cancel_current_operation()
+        self.controller.cleanup() # Ensure controller cleanup is called
+        event.accept()
 
     def _handle_vision_command(self, command: str):
         """Handle vision analysis command."""
@@ -722,3 +512,45 @@ class MainWindow(QMainWindow):
             dialog.close()
             QApplication.processEvents()
             self._enable_input() 
+
+    def export_to_pdf(self):
+        """Export the current chat view to a PDF file."""
+        file_name, _ = QFileDialog.getSaveFileName(self, "Save PDF", "", "PDF Files (*.pdf)")
+
+        if file_name:
+            if not file_name.lower().endswith('.pdf'):
+                file_name += '.pdf'
+            
+            # Show processing dialog
+            dialog = ProcessingDialog("Exporting to PDF...", self)
+            dialog.show()
+            QApplication.processEvents()
+            
+            try:
+                # Create page layout
+                layout = QPageLayout()
+                layout.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+                layout.setOrientation(QPageLayout.Orientation.Portrait)
+                
+                # Print to PDF using the callback version
+                def handle_pdf_data(pdf_data):
+                    if pdf_data:
+                        try:
+                            with open(file_name, 'wb') as f:
+                                f.write(pdf_data)
+                            self.append_to_chat("\n✨ Chat exported to PDF successfully!")
+                        except Exception as e:
+                            self.append_to_chat(f"\n❌ Error saving PDF: {str(e)}")
+                    else:
+                        self.append_to_chat("\n❌ Failed to export chat to PDF")
+                    dialog.close()
+                
+                page = self.chat_display.page()
+                if page:
+                    page.printToPdf(handle_pdf_data, layout)
+                
+            except Exception as e:
+                self.append_to_chat(f"\n❌ Error exporting to PDF: {str(e)}")
+                dialog.close()
+            
+            QApplication.processEvents() 
