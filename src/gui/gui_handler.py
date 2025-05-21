@@ -70,9 +70,9 @@ class GuiHandler(QObject):
 
     def _handle_chat_message(self, message: str):
         """Handles regular chat messages by starting a ChatWorker."""
-        worker = ChatWorker(self.controller, message)
+        worker = ChatWorker(self.controller, message, self.controller.event_loop)
         worker.response_ready.connect(self._handle_chat_worker_response)
-        self._start_worker(worker, "Assistant is thinking...") # Use unified start method
+        self._start_worker(worker, "Assistant is thinking...")
 
     def _handle_image_command(self, command: str):
         """Handles '/image' commands by starting an ImageGenerationWorker."""
@@ -89,10 +89,11 @@ class GuiHandler(QObject):
         worker = ImageGenerationWorker(
             self.controller.image_manager,
             prompt,
-            self.controller.chat_manager.conversation # Pass current conversation
+            self.controller.chat_manager.conversation,
+            self.controller.event_loop
         )
         worker.response_ready.connect(self._handle_image_worker_response)
-        self._start_worker(worker, "Generating image with DALL-E...") # Use unified start method
+        self._start_worker(worker, "Generating image with DALL-E...")
 
     def _handle_vision_command(self, command: str):
         """Handles '/vision' commands by starting a VisionWorker."""
@@ -128,9 +129,9 @@ class GuiHandler(QObject):
         # ...
 
         # Pass the potentially updated command (with file path) to the worker
-        worker = VisionWorker(self.controller, command)
+        worker = VisionWorker(self.controller, command, self.controller.event_loop)
         worker.response_ready.connect(self._handle_vision_worker_response)
-        self._start_worker(worker, "Analyzing image...") # Use unified start method
+        self._start_worker(worker, "Analyzing image...")
 
     # --- Worker Management ---
     def _start_worker(self, worker, thinking_message: str):

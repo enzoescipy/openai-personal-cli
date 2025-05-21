@@ -1,3 +1,4 @@
+import asyncio
 from ..core.api_client import APIClient
 from ..core.settings import Settings
 from .chat import ChatManager
@@ -6,11 +7,12 @@ from typing import Optional, Literal, cast
 
 class MainController:
     """Main controller for the application."""
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, event_loop: asyncio.AbstractEventLoop):
         self.settings = settings
         self.api_client = APIClient()
         self.chat_manager = ChatManager(self.api_client, settings)
         self.image_manager = ImageManager(self.api_client, settings)
+        self.event_loop = event_loop
 
     async def handle_chat_message(self, message: str) -> Optional[str]:
         """Handle a chat message."""
