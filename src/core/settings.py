@@ -9,9 +9,31 @@ class Settings:
         
     def load_settings(self) -> Dict[str, Any]:
         default_settings = {
+            "api_settings": {
+                "current_provider": "openai",
+                "providers": {
+                    "openai": {
+                        "base_url": "https://api.openai.com/v1",
+                        "api_key_env": "OPENAI_API_KEY"
+                    },
+                    "groq": {
+                        "base_url": "https://api.groq.com/openai/v1",
+                        "api_key_env": "GROQ_API_KEY"
+                    },
+                    "openrouter": {
+                        "base_url": "https://openrouter.ai/api/v1",
+                        "api_key_env": "OPENROUTER_API_KEY"
+                    }
+                }
+            },
             "chat_settings": {
                 "model": "gpt-3.5-turbo",
-                "available_models": ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"],
+                "available_models": [
+                    "gpt-3.5-turbo", 
+                    "gpt-4", 
+                    "gpt-4-turbo-preview", 
+                    "mistralai/mistral-7b-instruct"
+                ],
                 "temperature": 0.7,
                 "max_conversation_history": 5
             },

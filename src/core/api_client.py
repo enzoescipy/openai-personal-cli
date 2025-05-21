@@ -32,20 +32,28 @@ class UserMessage(TypedDict):
 
 class APIClient:
     def __init__(self):
-        # self.client = self._initialize_async_client() # 이제 직접 AsyncOpenAI 클라이언트 사용 안 함
         self.settings = Settings()
-        # 이미지/음성 관련 설정은 일단 주석 처리
-        # self.SUPPORTED_IMAGE_FORMATS = {'jpeg', 'jpg', 'png', 'webp', 'gif'}
-        # self.MAX_IMAGE_SIZE = 20 * 1024 * 1024  # 20MB
-        self.api_key = self._load_api_key()
-        self.base_url = "https://api.openai.com/v1"
+        current_provider_name = self.settings.get("api_settings", "current_provider")
         
-    def _load_api_key(self) -> str:
-        """Load the OpenAI API key from .env file."""
+        provider_settings = self.settings.get("api_settings", "providers", current_provider_name)
+        
+        if not provider_settings:
+            raise ValueError(f"Configuration for provider '{current_provider_name}' not found in settings.")
+
+        self.base_url = provider_settings.get("base_url")
+        self.api_key_env_name = provider_settings.get("api_key_env")
+        
+        if not self.base_url or not self.api_key_env_name:
+            raise ValueError(f"base_url or api_key_env not configured for provider '{current_provider_name}'.")
+            
+        self.api_key = self._load_api_key(self.api_key_env_name)
+        
+    def _load_api_key(self, api_key_env_name: str) -> str:
+        """Load the API key from .env file using the specified environment variable name."""
         load_dotenv('.env')
-        api_key = os.getenv('OPENAI_API_KEY')
+        api_key = os.getenv(api_key_env_name)
         if not api_key:
-            raise ValueError("Please set OPENAI_API_KEY in .env file")
+            raise ValueError(f"Please set {api_key_env_name} in .env file or environment variables")
         return api_key
 
     async def chat_completion(
@@ -75,7 +83,7 @@ class APIClient:
                     return await response.json() # JSON 응답 반환
         except aiohttp.ClientResponseError as e:
             # HTTP 에러 (4xx, 5xx)
-            error_content = await e.response.text() # 에러 응답 내용 확인 시도
+            error_content = e.message # 에러 응답 내용 확인 시도
             print(f"\nHTTP Error in chat completion: {e.status} {e.message} - {error_content}")
             return None
         except aiohttp.ClientConnectionError as e:
