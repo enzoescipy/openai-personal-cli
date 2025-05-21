@@ -1,0 +1,8 @@
+{
+    "venv": "pyvenv",
+    "venvPath": ".",
+    "extraPaths": [
+        "./pyvenv/lib/python3.9/site-packages"
+    ],
+    "typeCheckingMode": "basic"
+}

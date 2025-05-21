@@ -1,0 +1,23 @@
+# Python virtual environment
+pyvenv/
+pyvenv_macos/
+venv/
+env/
+
+# Environment files
+*.env
+.env
+!openai-key-example.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE settings
+.vscode/
+.idea/
+
+.DS_STORE
+
+.cursorrules
